@@ -83,6 +83,20 @@ void setColor(int ix, int iy, const vec4& color)
     g_colors[iy2 * g_width + ix] = color;
 }
 
+inline
+float normalizeCondition(float value)
+{
+    return value > 1.0f ? 1.0f : value;
+}
+
+//  Normalize colors
+inline
+vec4 normalizeColorComponent(const vec4& value)
+{
+    return vec4(normalizeCondition(value.x), normalizeCondition(value.y),
+                normalizeCondition(value.z), 1.0f);
+}
+
 //  Parse Line Utilities
 
 const int NUM_LABELS  = 11;
@@ -270,7 +284,7 @@ bool intersectSphere(const vec4& start, const vec4& dir, vec4& normal,
     if (t < minDist)
         t = t1;
     if ( ! traceLight)
-        normal = getNormal(startP, dirP, t, s);
+        normal = t == t1 ? -getNormal(startP, dirP, t, s) : getNormal(startP, dirP, t, s);
     return t >= minDist;    //  Check the requirement
 }
 
@@ -352,7 +366,8 @@ vec4 trace(const Ray& ray, int depth)
 
     //  Light Source
     const vec4 pointOfIntersect = vec4(toVec3(start + dir * t), 1);
-    dir = normalize(dir);
+    vec4 vision = -normalize(dir);
+
     for (auto it = g_light.begin(); it != g_light.end(); it++)
     {
         vec4 end = it->pos;
@@ -370,28 +385,20 @@ vec4 trace(const Ray& ray, int depth)
         
         //  Local Illumination Formula
         color += (it->intensity * max(dotProduct, 0.0f) * s.color * s.diffuse
-                + it->intensity * powf(max(dot(reflection, -dir), 0.0f), s.specExp) * s.specular);
+                + it->intensity * powf(max(dot(reflection, vision), 0.0f), s.specExp) * s.specular);
     }
 
     //  Reflection
 
     Ray ref;
     ref.origin = pointOfIntersect;
-    ref.dir = 2 * dot(normal, -dir) * normal + dir;
+    ref.dir = 2 * dot(normal, vision) * normal - vision;
     
     //  Findout reflections recursively
     color += s.reflection * trace(ref, depth + 1);
 
     //  Return results
-    return color;
-}
-
-//  Normalize colors
-inline
-vec4 normalizeColorComponent(const vec4& value)
-{
-    return vec4(value.x > 1.0f ? 1.0f : value.x, value.y > 1.0f ? 1.0f : value.y,
-                value.z > 1.0f ? 1.0f : value.z, 1.0f);
+    return normalizeColorComponent(color);
 }
 
 //  Calculate resulting point in getDir function
@@ -418,7 +425,7 @@ void renderPixel(int ix, int iy)
     ray.origin = vec4(0.0f, 0.0f, 0.0f, 1.0f);
     ray.dir = getDir(ix, iy);
     int depth = 0;
-    vec4 color = normalizeColorComponent(trace(ray, depth));
+    vec4 color = trace(ray, depth);
     setColor(ix, iy, color);
 }
 

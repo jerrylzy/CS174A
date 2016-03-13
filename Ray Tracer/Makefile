@@ -7,7 +7,7 @@ raytrace: raytrace.cpp
 	$(CC) $(CFLAGS) raytrace.cpp -o $@
 
 copy:
-	cp raytrace ../../raytrace
+	cp raytrace ../raytrace
 
 clean:
 	rm -f *.o *.s raytrace
